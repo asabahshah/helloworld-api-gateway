@@ -24,7 +24,7 @@ resource "aws_security_group" "ingress_vpc_sg" {
 }
 
 resource "aws_security_group_rule" "sg-rule" {
-  security_group_id = aws_security_group.ingress_vpc_sg
+  security_group_id = aws_security_group.ingress_vpc_sg.id
   type              = "ingress"
   from_port         = 80
   to_port           = 80
@@ -54,60 +54,44 @@ resource "aws_lambda_function" "hello_world_lmb" {
 resource "aws_iam_role" "lambda_role" {
   name = "lambda_execution_role"
 
-  assume_role_policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Action": "sts:AssumeRole",
-      "Principal": {
-        "Service": "lambda.amazonaws.com"
+  assume_role_policy = jsonencode({
+    "Version": "2012-10-17",
+    "Statement": [
+      {
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "lambda.amazonaws.com"
+        },
+        "Effect": "Allow",
+        "Sid": ""
       },
-      "Effect": "Allow",
-      "Sid": ""
-    }
-  ]  
-}
-EOF
+      {
+        "Action": "sts:AssumeRole",
+        "Principal": {
+          "Service": "apigateway.amazonaws.com"
+        },
+        "Effect": "Allow",
+        "Sid": ""
+      }
+    ]
+  })
+
+  inline_policy {
+    name = "lambda_policy"
+
+    policy = jsonencode({
+      Version = "2012-10-17",
+      Statement = [
+        {
+          Action   = "lambda:InvokeFunction"
+          Effect   = "Allow"
+          Resource = "arn:aws:lambda:eu-west-2:853889336394:function:helloworldlambda"
+        }
+      ]
+    })
+  }
 }
 
-# Attach IAM policy to the Lambda role
-resource "aws_iam_policy_attachment" "lambda_policy_attachment" {
-  name       = "lambda_policy_attachment"
-  roles      = [aws_iam_role.lambda_role.name]
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
-}
-
-# IAM policy for API Gateway access
-resource "aws_iam_policy" "api_gateway_policy" {
-  name        = "api_gateway_policy"
-  description = "IAM policy for API Gateway access"
-
-  policy = <<EOF
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "apigateway:POST", 
-        "apigateway:GET",
-        "apigateway:UPDATE_STAGE"
-      ],
-      "Resource": "arn:aws:execute-api:eu-west-2:853889336394:i7h8660t05/*"
-    }
-  ]
-}
-EOF
-}
-
-#remove POST from policy later 
-
-# Attach API Gateway policy to the Lambda role
-resource "aws_iam_role_policy_attachment" "api_gateway_policy_attachment" {
-  policy_arn = aws_iam_policy.api_gateway_policy.arn
-  role       = aws_iam_role.lambda_role.name
-}
 
 # REST API Gateway
 resource "aws_api_gateway_rest_api" "api_gateway" {
@@ -167,6 +151,7 @@ resource "aws_api_gateway_integration_response" "api_gateway_integration_respons
 resource "aws_api_gateway_deployment" "api_gateway_deployment" {
   rest_api_id = aws_api_gateway_rest_api.api_gateway.id
   stage_name  = "prod"
+  depends_on = ["aws_api_gateway_method.api_gateway_method", "aws_api_gateway_integration.api_gateway_integration"]
 }
 
 # Stitch together Lambda and API Gateway trigger
