@@ -6,20 +6,20 @@ resource "aws_vpc" "lambda_vpc" {
 # Create Subnets
 resource "aws_subnet" "subnet_1" {
   vpc_id            = aws_vpc.lambda_vpc.id
-  cidr_block        = "10.0.0.0/24" #constrain range? 
+  cidr_block        = ""
   availability_zone = "eu-west-2a"
 }
 
 resource "aws_subnet" "subnet_2" {
   vpc_id            = aws_vpc.lambda_vpc.id
-  cidr_block        = "10.0.1.0/24"
+  cidr_block        = ""
   availability_zone = "eu-west-2b"
 }
 
 # Create Security Group
 resource "aws_security_group" "ingress_vpc_sg" {
   name        = "vpc_sg"
-  description = "Security group restricting rest api ingress to my home wifi"
+  description = "Security group restricting rest api ingress"
   vpc_id      = aws_vpc.lambda_vpc.id
 }
 
@@ -29,7 +29,7 @@ resource "aws_security_group_rule" "sg-rule" {
   from_port         = 80
   to_port           = 80
   protocol          = "tcp"
-  cidr_blocks       = [var.home_wifi_cidr]
+  cidr_blocks       = ""
 }
 
 
